@@ -98,9 +98,9 @@ private final class StatusBarItemView: NSView {
     }
 
     var fittingWidth: CGFloat {
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
         let textWidth = configuration.text.isEmpty ? 0 : (configuration.text as NSString).size(withAttributes: [.font: font]).width
-        return max(24, ceil(8 + 14 + 3 + textWidth + 8))
+        return max(24, ceil(8 + 18 + 3 + textWidth + 8))
     }
 
     init() {
@@ -120,16 +120,16 @@ private final class StatusBarItemView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         let color: NSColor = .white
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
         let textSize = (configuration.text as NSString).size(withAttributes: [.font: font])
-        let contentWidth = 14 + 3 + textSize.width
+        let contentWidth = 18 + 3 + textSize.width
         var x = floor((bounds.width - contentWidth) / 2)
         let centerY = bounds.midY
 
         if let image = configuration.image {
-            let iconRect = NSRect(x: x, y: floor(centerY - 7), width: 14, height: 14)
+            let iconRect = NSRect(x: x, y: floor(centerY - 9), width: 18, height: 18)
             Self.tintedImage(image, color: color).draw(in: iconRect)
-            x += 14 + 3
+            x += 18 + 3
         }
 
         let textRect = NSRect(x: x, y: floor(centerY - textSize.height / 2), width: textSize.width, height: textSize.height)
