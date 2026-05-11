@@ -67,10 +67,10 @@ final class DashboardViewModel {
         authService.startLogin { [weak self] token in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                isLoggedIn = true
-                isLoading = false
-                await refreshAll()
-                startAutoRefresh()
+                self.isLoggedIn = true
+                self.isLoading = false
+                await self.refreshAll()
+                self.startAutoRefresh()
             }
         }
     }
