@@ -118,7 +118,7 @@ actor PlatformAPIClient {
         let monthlyTokens = Int(bizData["monthly_token_usage"] as? String ?? "0") ?? 0
         let monthlyCost = Double(costs.first?["amount"] as? String ?? "0") ?? 0
 
-        let models = parseModels(from: amount)
+        let models = parseTodayModels(from: amount, today: today)
         let todayCost = parseTodayCost(from: cost, today: today)
         let todayTokens = parseTodayTokens(from: amount, today: today)
 
@@ -144,11 +144,13 @@ actor PlatformAPIClient {
         return json
     }
 
-    private func parseModels(from json: [String: Any]) -> [ModelUsage] {
+    private func parseTodayModels(from json: [String: Any], today: String) -> [ModelUsage] {
         guard let data = json["data"] as? [String: Any],
               let bizData = data["biz_data"] as? [String: Any],
-              let total = bizData["total"] as? [[String: Any]] else { return [] }
-        return total.compactMap { m in
+              let days = bizData["days"] as? [[String: Any]],
+              let todayData = days.first(where: { ($0["date"] as? String) == today }),
+              let models = todayData["data"] as? [[String: Any]] else { return [] }
+        return models.compactMap { m in
             guard let model = m["model"] as? String,
                   let usage = m["usage"] as? [[String: Any]] else { return nil }
             let toks = usage.filter { u in (u["type"] as? String) != "REQUEST" }
