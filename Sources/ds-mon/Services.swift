@@ -91,12 +91,16 @@ actor PlatformAPIClient {
 
     private var token: String? { PlatformAuthService.token }
 
-    func fetchAllData() async throws -> (balance: Double, currency: String, monthlyTokens: Int, monthlyCost: Double, todayCost: Double, models: [ModelUsage]) {
+    func fetchAllData() async throws -> (balance: Double, currency: String, monthlyTokens: Int, monthlyCost: Double, todayCost: Double, todayTokens: Int, models: [ModelUsage]) {
         let now = Date()
         let cal = Calendar.current
         let month = cal.component(.month, from: now)
         let year = cal.component(.year, from: now)
-        let today = ISO8601DateFormatter().string(from: now).prefix(10)
+        let today = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: now)
+        }()
 
         let summary = try await getJSON(path: "/api/v0/users/get_user_summary")
         let amount = try await getJSON(path: "/api/v0/usage/amount", query: ["month": "\(month)", "year": "\(year)"])
@@ -115,9 +119,10 @@ actor PlatformAPIClient {
         let monthlyCost = Double(costs.first?["amount"] as? String ?? "0") ?? 0
 
         let models = parseModels(from: amount)
-        let todayCost = parseTodayCost(from: cost, today: String(today))
+        let todayCost = parseTodayCost(from: cost, today: today)
+        let todayTokens = parseTodayTokens(from: amount, today: today)
 
-        return (balance, currency, monthlyTokens, monthlyCost, todayCost, models)
+        return (balance, currency, monthlyTokens, monthlyCost, todayCost, todayTokens, models)
     }
 
     private func getJSON(path: String, query: [String: String] = [:]) async throws -> [String: Any] {
@@ -147,12 +152,32 @@ actor PlatformAPIClient {
             guard let model = m["model"] as? String,
                   let usage = m["usage"] as? [[String: Any]] else { return nil }
             let toks = usage.filter { u in (u["type"] as? String) != "REQUEST" }
-                .reduce(0) { $0 + (Int((($1["amount"] as? String) ?? "0")) ?? 0) }
-            guard toks > 0 || (Int(((usage.first { ($0["type"] as? String) == "REQUEST" })?["amount"] as? String ?? "0")) ?? 0) > 0 else { return nil }
+                .reduce(0) { $0 + (Int(Double(($1["amount"] as? String) ?? "0") ?? 0)) }
+            guard toks > 0 || (Int(Double(((usage.first { ($0["type"] as? String) == "REQUEST" })?["amount"] as? String ?? "0")) ?? 0)) > 0 else { return nil }
             return ModelUsage(model: model, usage: usage.map { u in
                 UsageEntry(type: u["type"] as? String ?? "", amount: u["amount"] as? String ?? "0")
             })
         }
+    }
+
+    private func parseTodayTokens(from json: [String: Any], today: String) -> Int {
+        guard let data = json["data"] as? [String: Any],
+              let bizData = data["biz_data"] as? [String: Any],
+              let days = bizData["days"] as? [[String: Any]] else { return 0 }
+        for day in days {
+            guard (day["date"] as? String) == today else { continue }
+            guard let models = day["data"] as? [[String: Any]] else { continue }
+            var total = 0
+            for model in models {
+                guard let usage = model["usage"] as? [[String: Any]] else { continue }
+                for entry in usage {
+                    guard (entry["type"] as? String) != "REQUEST" else { continue }
+                    total += Int(Double(entry["amount"] as? String ?? "0") ?? 0)
+                }
+            }
+            return total
+        }
+        return 0
     }
 
     private func parseTodayCost(from json: [String: Any], today: String) -> Double {

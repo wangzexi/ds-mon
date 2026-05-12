@@ -7,12 +7,12 @@ struct ModelUsage: Codable, Identifiable {
     var id: String { model }
 
     var totalTokens: Int {
-        usage.filter { $0.type != "REQUEST" }.reduce(0) { $0 + (Int($1.amount) ?? 0) }
+        usage.filter { $0.type != "REQUEST" }.reduce(0) { $0 + Int(Double($1.amount) ?? 0) }
     }
 
-    var cacheHitTokens: Int { Int(usage.first { $0.type == "PROMPT_CACHE_HIT_TOKEN" }?.amount ?? "0") ?? 0 }
-    var cacheMissTokens: Int { Int(usage.first { $0.type == "PROMPT_CACHE_MISS_TOKEN" }?.amount ?? "0") ?? 0 }
-    var responseTokens: Int { Int(usage.first { $0.type == "RESPONSE_TOKEN" }?.amount ?? "0") ?? 0 }
+    var cacheHitTokens: Int { Int(Double(usage.first { $0.type == "PROMPT_CACHE_HIT_TOKEN" }?.amount ?? "0") ?? 0) }
+    var cacheMissTokens: Int { Int(Double(usage.first { $0.type == "PROMPT_CACHE_MISS_TOKEN" }?.amount ?? "0") ?? 0) }
+    var responseTokens: Int { Int(Double(usage.first { $0.type == "RESPONSE_TOKEN" }?.amount ?? "0") ?? 0) }
 
     var cacheHitPercent: Double {
         let total = cacheHitTokens + cacheMissTokens
@@ -38,6 +38,7 @@ final class DashboardViewModel {
     var balanceCurrency: String = "CNY"
     var monthlyCost: Double = 0
     var todayCost: Double = 0
+    var todayTokens: Int = 0
     var monthlyTokens: Int = 0
     var platformUsage: [ModelUsage] = []
     var isLoggedIn = false
@@ -52,9 +53,9 @@ final class DashboardViewModel {
     }
 
     var totalTokensText: String {
-        if monthlyTokens >= 1_000_000 { return String(format: "%.1fM", Double(monthlyTokens) / 1_000_000) }
-        if monthlyTokens >= 1_000 { return String(format: "%.1fK", Double(monthlyTokens) / 1_000) }
-        return "\(monthlyTokens)"
+        if todayTokens >= 1_000_000 { return String(format: "%.1fM", Double(todayTokens) / 1_000_000) }
+        if todayTokens >= 1_000 { return String(format: "%.1fK", Double(todayTokens) / 1_000) }
+        return "\(todayTokens)"
     }
 
     func checkLoginStatus() {
@@ -79,7 +80,7 @@ final class DashboardViewModel {
         PlatformAuthService.logout()
         isLoggedIn = false
         stopAutoRefresh()
-        balance = 0; monthlyTokens = 0; monthlyCost = 0; todayCost = 0
+        balance = 0; monthlyTokens = 0; monthlyCost = 0; todayCost = 0; todayTokens = 0
         platformUsage = []
         lastUpdated = nil
         onMenuBarNeedsUpdate?()
@@ -110,6 +111,7 @@ final class DashboardViewModel {
             monthlyTokens = result.monthlyTokens
             monthlyCost = result.monthlyCost
             todayCost = result.todayCost
+            todayTokens = result.todayTokens
             platformUsage = result.models
             lastUpdated = Date()
             sectionErrors["api"] = nil
