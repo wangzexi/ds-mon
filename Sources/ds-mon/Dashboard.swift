@@ -28,6 +28,11 @@ struct UsageEntry: Codable {
 import Foundation
 import Observation
 
+enum DisplayMode: String, CaseIterable {
+    case today = "今日"
+    case monthly = "本月"
+}
+
 @MainActor
 @Observable
 final class DashboardViewModel {
@@ -40,9 +45,15 @@ final class DashboardViewModel {
     var todayCost: Double = 0
     var todayTokens: Int = 0
     var monthlyTokens: Int = 0
-    var platformUsage: [ModelUsage] = []
+    var displayMode: DisplayMode = .today
+    var todayUsage: [ModelUsage] = []
+    var monthlyUsage: [ModelUsage] = []
     var isLoggedIn = false
     var onMenuBarNeedsUpdate: (() -> Void)?
+
+    var platformUsage: [ModelUsage] {
+        displayMode == .today ? todayUsage : monthlyUsage
+    }
 
     private let apiClient = PlatformAPIClient()
     private let authService = PlatformAuthService()
@@ -53,9 +64,10 @@ final class DashboardViewModel {
     }
 
     var totalTokensText: String {
-        if todayTokens >= 1_000_000 { return String(format: "%.1fM", Double(todayTokens) / 1_000_000) }
-        if todayTokens >= 1_000 { return String(format: "%.1fK", Double(todayTokens) / 1_000) }
-        return "\(todayTokens)"
+        let tokens = displayMode == .today ? todayTokens : monthlyTokens
+        if tokens >= 1_000_000 { return String(format: "%.1fM", Double(tokens) / 1_000_000) }
+        if tokens >= 1_000 { return String(format: "%.1fK", Double(tokens) / 1_000) }
+        return "\(tokens)"
     }
 
     func checkLoginStatus() {
@@ -81,7 +93,7 @@ final class DashboardViewModel {
         isLoggedIn = false
         stopAutoRefresh()
         balance = 0; monthlyTokens = 0; monthlyCost = 0; todayCost = 0; todayTokens = 0
-        platformUsage = []
+        todayUsage = []; monthlyUsage = []
         lastUpdated = nil
         onMenuBarNeedsUpdate?()
     }
@@ -112,7 +124,8 @@ final class DashboardViewModel {
             monthlyCost = result.monthlyCost
             todayCost = result.todayCost
             todayTokens = result.todayTokens
-            platformUsage = result.models
+            todayUsage = result.todayModels
+            monthlyUsage = result.monthlyModels
             lastUpdated = Date()
             sectionErrors["api"] = nil
         } catch APIError.unauthorized {
@@ -167,6 +180,7 @@ struct DashboardView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         if !vm.platformUsage.isEmpty {
+                            modePicker
                             modelListSection
                             Divider().padding(.horizontal, 16)
                             footerView
@@ -228,6 +242,16 @@ struct DashboardView: View {
     }
 
     // MARK: - Models
+
+    private var modePicker: some View {
+        Picker("", selection: Bindable(vm).displayMode) {
+            ForEach(DisplayMode.allCases, id: \.self) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+    }
 
     private var modelListSection: some View {
         Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
