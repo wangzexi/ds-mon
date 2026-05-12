@@ -45,7 +45,9 @@ final class DashboardViewModel {
     var todayCost: Double = 0
     var todayTokens: Int = 0
     var monthlyTokens: Int = 0
-    var displayMode: DisplayMode = .today
+    var displayMode: DisplayMode = .today {
+        didSet { onMenuBarNeedsUpdate?() }
+    }
     var todayUsage: [ModelUsage] = []
     var monthlyUsage: [ModelUsage] = []
     var isLoggedIn = false
@@ -282,7 +284,7 @@ struct DashboardView: View {
 
     private var footerView: some View {
         HStack(spacing: 4) {
-            Text("今日消费 ¥\(String(format: "%.1f", vm.todayCost))")
+            Text(vm.displayMode == .today ? "今日消费 ¥\(String(format: "%.1f", vm.todayCost))" : "本月消费 ¥\(String(format: "%.1f", vm.monthlyCost))")
             Spacer()
             Text("余额 \(vm.balanceBadgeText)")
         }
