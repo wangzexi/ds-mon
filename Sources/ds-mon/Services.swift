@@ -158,6 +158,7 @@ actor PlatformAPIClient {
                 UsageEntry(type: u["type"] as? String ?? "", amount: u["amount"] as? String ?? "0")
             })
         }
+        .sorted { $0.totalTokens > $1.totalTokens }
     }
 
     private func parseMonthlyModels(from json: [String: Any]) -> [ModelUsage] {
@@ -171,6 +172,7 @@ actor PlatformAPIClient {
                 UsageEntry(type: u["type"] as? String ?? "", amount: u["amount"] as? String ?? "0")
             })
         }
+        .sorted { $0.totalTokens > $1.totalTokens }
     }
 
     private func parseTodayTokens(from json: [String: Any], today: String) -> Int {
