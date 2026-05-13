@@ -182,7 +182,6 @@ struct DashboardView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         if !vm.platformUsage.isEmpty {
-                            modePicker
                             modelListSection
                             Divider().padding(.horizontal, 16)
                             footerView
@@ -245,21 +244,6 @@ struct DashboardView: View {
 
     // MARK: - Models
 
-    private var modePicker: some View {
-        HStack {
-            Spacer()
-            Picker("", selection: Bindable(vm).displayMode) {
-                ForEach(DisplayMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 140)
-            .controlSize(.small)
-            Spacer()
-        }
-    }
-
     private var modelListSection: some View {
         Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
             ForEach(vm.platformUsage) { model in
@@ -288,15 +272,30 @@ struct DashboardView: View {
     // MARK: - Footer
 
     private var footerView: some View {
-        HStack(spacing: 4) {
-            Text(vm.displayMode == .today ? "今日消费 ¥\(String(format: "%.1f", vm.todayCost))" : "本月消费 ¥\(String(format: "%.1f", vm.monthlyCost))")
+        HStack(spacing: 6) {
+            pill("今日 \(formatCost(vm.todayCost))", isSelected: vm.displayMode == .today)
+                .onTapGesture { vm.displayMode = .today }
+            pill("本月 \(formatCost(vm.monthlyCost))", isSelected: vm.displayMode == .monthly)
+                .onTapGesture { vm.displayMode = .monthly }
             Spacer()
-            Text("余额 \(vm.balanceBadgeText)")
+            Text("余额 \(vm.balanceBadgeText)").font(.system(size: 9)).foregroundColor(.secondary)
         }
-        .font(.system(size: 9)).foregroundColor(.secondary)
-        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
     }
+
+    private func pill(_ text: String, isSelected: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: isSelected ? .medium : .regular))
+            .foregroundColor(isSelected ? .primary : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(isSelected ? Color.primary.opacity(0.1) : .clear)
+            .cornerRadius(6)
+    }
+}
+
+private func formatCost(_ v: Double) -> String {
+    String(format: "¥%.1f", v)
 }
 
 extension ModelUsage {
