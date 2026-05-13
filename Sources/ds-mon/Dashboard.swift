@@ -183,7 +183,6 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         if !vm.platformUsage.isEmpty {
                             modelListSection
-                            Divider().padding(.horizontal, 16)
                             footerView
                         } else if vm.isLoading {
                             loadingView
