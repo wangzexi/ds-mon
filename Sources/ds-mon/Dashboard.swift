@@ -246,13 +246,18 @@ struct DashboardView: View {
     // MARK: - Models
 
     private var modePicker: some View {
-        Picker("", selection: Bindable(vm).displayMode) {
-            ForEach(DisplayMode.allCases, id: \.self) { mode in
-                Text(mode.rawValue).tag(mode)
+        HStack {
+            Spacer()
+            Picker("", selection: Bindable(vm).displayMode) {
+                ForEach(DisplayMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
             }
+            .pickerStyle(.segmented)
+            .frame(width: 140)
+            .controlSize(.small)
+            Spacer()
         }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 16)
     }
 
     private var modelListSection: some View {

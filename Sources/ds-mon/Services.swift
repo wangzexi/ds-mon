@@ -154,9 +154,6 @@ actor PlatformAPIClient {
         return models.compactMap { m in
             guard let model = m["model"] as? String,
                   let usage = m["usage"] as? [[String: Any]] else { return nil }
-            let toks = usage.filter { u in (u["type"] as? String) != "REQUEST" }
-                .reduce(0) { $0 + (Int(Double(($1["amount"] as? String) ?? "0") ?? 0)) }
-            guard toks > 0 || (Int(Double(((usage.first { ($0["type"] as? String) == "REQUEST" })?["amount"] as? String ?? "0")) ?? 0)) > 0 else { return nil }
             return ModelUsage(model: model, usage: usage.map { u in
                 UsageEntry(type: u["type"] as? String ?? "", amount: u["amount"] as? String ?? "0")
             })
@@ -170,9 +167,6 @@ actor PlatformAPIClient {
         return total.compactMap { m in
             guard let model = m["model"] as? String,
                   let usage = m["usage"] as? [[String: Any]] else { return nil }
-            let toks = usage.filter { u in (u["type"] as? String) != "REQUEST" }
-                .reduce(0) { $0 + (Int(Double(($1["amount"] as? String) ?? "0") ?? 0)) }
-            guard toks > 0 || (Int(Double(((usage.first { ($0["type"] as? String) == "REQUEST" })?["amount"] as? String ?? "0")) ?? 0)) > 0 else { return nil }
             return ModelUsage(model: model, usage: usage.map { u in
                 UsageEntry(type: u["type"] as? String ?? "", amount: u["amount"] as? String ?? "0")
             })
