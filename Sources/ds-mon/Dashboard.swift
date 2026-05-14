@@ -58,7 +58,6 @@ final class DashboardViewModel {
     }
 
     private let apiClient = PlatformAPIClient()
-    private let authService = PlatformAuthService()
     private var refreshTask: Task<Void, Never>?
 
     var balanceBadgeText: String {
@@ -74,20 +73,6 @@ final class DashboardViewModel {
 
     func checkLoginStatus() {
         isLoggedIn = PlatformAuthService.hasToken
-    }
-
-    func login() {
-        isLoggedIn = false
-        isLoading = true
-        authService.startLogin { [weak self] token in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.isLoggedIn = true
-                self.isLoading = false
-                await self.refreshAll()
-                self.startAutoRefresh()
-            }
-        }
     }
 
     func logout() {
@@ -112,6 +97,11 @@ final class DashboardViewModel {
     }
 
     func refreshAll() async {
+        guard isLoggedIn, PlatformAuthService.hasToken else {
+            isLoggedIn = false
+            return
+        }
+
         isLoading = true
         defer {
             isLoading = false
@@ -134,6 +124,7 @@ final class DashboardViewModel {
             sectionErrors["api"] = "登录已过期，请重新登录"
             PlatformAuthService.logout()
             isLoggedIn = false
+            stopAutoRefresh()
         } catch {
             sectionErrors["api"] = error.localizedDescription
         }
@@ -146,6 +137,7 @@ final class DashboardViewModel {
     func handleLoginSuccess() {
         isLoggedIn = true
         isLoading = false
+        sectionErrors["api"] = nil
         Task { await refreshAll(); startAutoRefresh() }
     }
 
@@ -186,31 +178,30 @@ struct DashboardView: View {
                     errorView(error)
                 }
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !vm.platformUsage.isEmpty {
-                            modelListSection
-                            footerView
-                        } else if vm.isLoading {
-                            loadingView
-                        } else {
-                            Text("等待数据…").font(.system(size: 10)).foregroundColor(.secondary)
-                                .padding(.horizontal, 16)
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    if !vm.platformUsage.isEmpty {
+                        modelListSection
+                        footerView
+                    } else if vm.isLoading {
+                        loadingView
+                    } else {
+                        Text("等待数据…").font(.system(size: 10)).foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
                     }
-                    .padding(.vertical, 12)
                 }
+                .padding(.vertical, 12)
             } else {
                 loginPrompt
             }
         }
-        .frame(minWidth: 340)
+        .frame(width: vm.isLoggedIn ? 340 : 390)
     }
 
     // MARK: - Login
 
     private var loginPrompt: some View {
         LoginWebView { vm.handleLoginSuccess() }
+            .frame(height: 680)
     }
 
     // MARK: - Error
@@ -221,7 +212,7 @@ struct DashboardView: View {
             Text(msg).font(.system(size: 10)).foregroundColor(.secondary)
             Spacer()
             if msg.contains("重新登录") {
-                Button("重新登录") { vm.login() }.buttonStyle(.plain).font(.system(size: 10))
+                Button("重新登录") { vm.logout() }.buttonStyle(.plain).font(.system(size: 10))
             } else {
                 Button("知道了") { vm.clearError() }.buttonStyle(.plain).font(.system(size: 10))
             }
@@ -299,7 +290,7 @@ struct LoginWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 380, height: 500), configuration: config)
+        let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
         web.load(URLRequest(url: URL(string: "https://platform.deepseek.com/login")!))
         return web
@@ -320,7 +311,7 @@ struct LoginWebView: NSViewRepresentable {
             self.webView = webView
             timer?.invalidate()
             timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-                self?.checkToken()
+                Task { @MainActor in self?.checkToken() }
             }
         }
 

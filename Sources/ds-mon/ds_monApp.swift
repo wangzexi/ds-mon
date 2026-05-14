@@ -59,7 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
-            Task { await viewModel.refreshAll() }
+            if viewModel.isLoggedIn {
+                Task { await viewModel.refreshAll() }
+            }
         }
     }
 
