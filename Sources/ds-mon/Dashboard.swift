@@ -143,6 +143,12 @@ final class DashboardViewModel {
         sectionErrors["api"] = nil
     }
 
+    func handleLoginSuccess() {
+        isLoggedIn = true
+        isLoading = false
+        Task { await refreshAll(); startAutoRefresh() }
+    }
+
     private func startAutoRefresh() {
         refreshTask?.cancel()
         refreshTask = Task { [weak self] in
@@ -168,6 +174,7 @@ final class DashboardViewModel {
     }
 }
 import SwiftUI
+import WebKit
 
 struct DashboardView: View {
     @Environment(DashboardViewModel.self) private var vm
@@ -203,17 +210,7 @@ struct DashboardView: View {
     // MARK: - Login
 
     private var loginPrompt: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Image(systemName: "person.circle").font(.system(size: 32)).foregroundColor(.secondary)
-            Text("未登录").font(.system(size: 13, weight: .medium)).foregroundColor(.primary)
-            Text("登录后可查看 DeepSeek API 用量").font(.system(size: 10)).foregroundColor(.secondary)
-            Button("登录 DeepSeek") { vm.login() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        LoginWebView { vm.handleLoginSuccess() }
     }
 
     // MARK: - Error
@@ -290,6 +287,61 @@ struct DashboardView: View {
             .padding(.vertical, 3)
             .background(isSelected ? Color.primary.opacity(0.1) : .clear)
             .cornerRadius(6)
+            .onHover { inside in
+                if inside { NSCursor.pointingHand.push() }
+                else { NSCursor.pop() }
+            }
+    }
+}
+
+struct LoginWebView: NSViewRepresentable {
+    let onLogin: () -> Void
+
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 380, height: 500), configuration: config)
+        web.navigationDelegate = context.coordinator
+        web.load(URLRequest(url: URL(string: "https://platform.deepseek.com/login")!))
+        return web
+    }
+
+    func updateNSView(_ nsView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onLogin: onLogin) }
+
+    class Coordinator: NSObject, WKNavigationDelegate {
+        let onLogin: () -> Void
+        weak var webView: WKWebView?
+        private var timer: Timer?
+
+        init(onLogin: @escaping () -> Void) { self.onLogin = onLogin }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            self.webView = webView
+            timer?.invalidate()
+            timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                self?.checkToken()
+            }
+        }
+
+        private func checkToken() {
+            guard let web = webView else { return }
+            web.evaluateJavaScript("localStorage.getItem('userToken')") { [weak self] (result: Any?, error: Error?) in
+                guard let self else { return }
+                guard let tokenStr = result as? String,
+                      let data = tokenStr.data(using: .utf8),
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let token = obj["value"] as? String,
+                      !token.isEmpty
+                else { return }
+                Task { @MainActor in
+                    PlatformAuthService.token = token
+                    self.timer?.invalidate()
+                    self.timer = nil
+                    self.onLogin()
+                }
+            }
+        }
     }
 }
 
