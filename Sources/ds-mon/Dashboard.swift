@@ -1,6 +1,9 @@
 import Foundation
+import Observation
+import SwiftUI
+import WebKit
 
-struct ModelUsage: Codable, Identifiable {
+struct ModelUsage: Identifiable {
     let model: String
     let usage: [UsageEntry]
 
@@ -21,12 +24,10 @@ struct ModelUsage: Codable, Identifiable {
     }
 }
 
-struct UsageEntry: Codable {
+struct UsageEntry {
     let type: String
     let amount: String
 }
-import Foundation
-import Observation
 
 enum DisplayMode: String, CaseIterable {
     case today = "今日"
@@ -37,8 +38,7 @@ enum DisplayMode: String, CaseIterable {
 @Observable
 final class DashboardViewModel {
     var isLoading = false
-    var sectionErrors: [String: String] = [:]
-    var lastUpdated: Date?
+    var apiError: String?
     var balance: Double = 0
     var balanceCurrency: String = "CNY"
     var monthlyCost: Double = 0
@@ -81,7 +81,6 @@ final class DashboardViewModel {
         stopAutoRefresh()
         balance = 0; monthlyTokens = 0; monthlyCost = 0; todayCost = 0; todayTokens = 0
         todayUsage = []; monthlyUsage = []
-        lastUpdated = nil
         onMenuBarNeedsUpdate?()
     }
 
@@ -118,26 +117,25 @@ final class DashboardViewModel {
             todayTokens = result.todayTokens
             todayUsage = result.todayModels
             monthlyUsage = result.monthlyModels
-            lastUpdated = Date()
-            sectionErrors["api"] = nil
+            apiError = nil
         } catch APIError.unauthorized {
-            sectionErrors["api"] = "登录已过期，请重新登录"
+            apiError = "登录已过期，请重新登录"
             PlatformAuthService.logout()
             isLoggedIn = false
             stopAutoRefresh()
         } catch {
-            sectionErrors["api"] = error.localizedDescription
+            apiError = error.localizedDescription
         }
     }
 
     func clearError() {
-        sectionErrors["api"] = nil
+        apiError = nil
     }
 
     func handleLoginSuccess() {
         isLoggedIn = true
         isLoading = false
-        sectionErrors["api"] = nil
+        apiError = nil
         Task { await refreshAll(); startAutoRefresh() }
     }
 
@@ -165,8 +163,6 @@ final class DashboardViewModel {
         }
     }
 }
-import SwiftUI
-import WebKit
 
 struct DashboardView: View {
     @Environment(DashboardViewModel.self) private var vm
@@ -174,7 +170,7 @@ struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if vm.isLoggedIn {
-                if let error = vm.sectionErrors["api"] {
+                if let error = vm.apiError {
                     errorView(error)
                 }
 
