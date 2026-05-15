@@ -179,14 +179,15 @@ struct DashboardView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    if !vm.platformUsage.isEmpty {
-                        modelListSection
-                        footerView
-                    } else if vm.isLoading {
+                    if vm.isLoading && vm.platformUsage.isEmpty {
                         loadingView
                     } else {
-                        Text("等待数据…").font(.system(size: 10)).foregroundColor(.secondary)
-                            .padding(.horizontal, 16)
+                        if !vm.platformUsage.isEmpty {
+                            modelListSection
+                        } else {
+                            emptyUsageView
+                        }
+                        footerView
                     }
                 }
                 .padding(.vertical, 12)
@@ -227,6 +228,13 @@ struct DashboardView: View {
             Text("加载中…").font(.system(size: 10)).foregroundColor(.secondary)
         }
         .padding(.horizontal, 16)
+    }
+
+    private var emptyUsageView: some View {
+        Text("\(vm.displayMode.rawValue)暂无用量")
+            .font(.system(size: 10))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 16)
     }
 
     // MARK: - Models
